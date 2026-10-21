@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestión de Ventas y Membresías</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#4f46e5; --accent-ink:#ffffff;
+    --green:#16a34a; --wa:#25d366; --amber:#d97706; --red:#dc2626; --gray:#6b7280;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:.6rem 1rem;background:var(--accent);color:var(--accent-ink)}
+  button.secondary{background:#eef2ff;color:var(--accent)}
+  button.danger{background:#fee2e2;color:var(--red)}
+  button.wa-btn{background:var(--wa);color:#fff;font-weight:600;text-decoration:none;display:inline-block;border-radius:10px;padding:.55rem .95rem}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  input,select{font:inherit;padding:.6rem .7rem;border:1px solid var(--line);border-radius:10px;width:100%;background:#fff}
+  label{display:block;font-size:.85rem;color:var(--muted);margin:.7rem 0 .3rem}
+  .hidden{display:none !important}
+
+  /* ---------- Login ---------- */
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+  .login-card{background:var(--card);border-radius:var(--radius);box-shadow:0 8px 30px rgba(20,20,60,.08);padding:2rem;width:100%;max-width:400px}
+  .login-card h1{font-size:1.3rem;margin:.2rem 0 .4rem}
+  .login-card p{color:var(--muted);margin:.2rem 0 1rem}
+  .msg{border-radius:10px;padding:.6rem .8rem;font-size:.9rem;margin-top:.8rem}
+  .msg.error{background:#fef2f2;color:var(--red)}
+  .msg.ok{background:#f0fdf4;color:var(--green)}
+
+  /* ---------- Panel ---------- */
+  header.topbar{background:var(--card);border-bottom:1px solid var(--line);padding:.8rem 1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+  header.topbar .brand{font-weight:700}
+  header.topbar .user{color:var(--muted);font-size:.9rem}
+  main{max-width:1100px;margin:0 auto;padding:1rem}
+  section{margin-bottom:1.6rem}
+  h2{font-size:1.05rem;margin:.2rem 0 .7rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.7rem}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem}
+  .stat .num{font-size:1.6rem;font-weight:700}
+  .stat .lbl{color:var(--muted);font-size:.85rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1rem}
+
+  .badge{display:inline-block;padding:.15rem .55rem;border-radius:999px;font-size:.75rem;font-weight:700}
+  .badge.ACTIVA{background:#dcfce7;color:#166534}
+  .badge.POR_VENCER{background:#fef3c7;color:#92400e}
+  .badge.VENCIDA{background:#fee2e2;color:#991b1b}
+  .badge.CANCELADA{background:#e5e7eb;color:#374151}
+  .chip{display:inline-block;padding:.15rem .55rem;border-radius:999px;font-size:.75rem;background:#eef2ff;color:var(--accent);font-weight:600}
+
+  .urgencia-item{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;margin-bottom:.55rem;background:#fff}
+  .urgencia-item .meta{color:var(--muted);font-size:.85rem}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.8rem}
+  .toolbar input[type="search"]{flex:1;min-width:200px}
+  .filtros{display:flex;gap:.4rem;flex-wrap:wrap}
+  .filtros button{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .filtros button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.7rem}
+  .cliente-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:.9rem;text-align:left;color:var(--ink);width:100%}
+  .cliente-card:hover{border-color:var(--accent)}
+  .cliente-card .nombre{font-weight:700;margin-bottom:.25rem}
+  .cliente-card .detalle{color:var(--muted);font-size:.85rem;line-height:1.45}
+  .cliente-card .top{display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start}
+
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  .table-wrap{overflow-x:auto}
+
+  /* ---------- Modal ---------- */
+  .modal-back{position:fixed;inset:0;background:rgba(15,18,35,.5);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;z-index:20}
+  .modal{background:#fff;border-radius:var(--radius);width:100%;max-width:560px;padding:1.2rem;margin:auto}
+  .modal h3{margin:.1rem 0 .6rem}
+  .modal .close-x{float:right;background:none;color:var(--muted);font-size:1.2rem;padding:.1rem .4rem}
+  .historial-item{border-left:3px solid var(--line);padding:.35rem .7rem;margin:.45rem 0;font-size:.9rem}
+  .historial-item .tipo{font-weight:700}
+  .row-flex{display:flex;gap:.6rem;flex-wrap:wrap}
+  .row-flex > *{flex:1;min-width:130px}
+  .toggle{display:flex;align-items:center;gap:.5rem;margin-top:.8rem;font-size:.92rem;color:var(--ink)}
+  .toggle input{width:auto}
+  .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem}
+  .warn{background:#fffbeb;border:1px solid #f59e0b;color:#92400e;border-radius:10px;padding:.7rem .9rem;margin:1rem}
+  .empty{color:var(--muted);padding:.6rem 0}
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="loginView" class="login-wrap">
+  <div class="login-card">
+    <div style="font-size:1.8rem">🔐</div>
+    <h1>Sistema de Gestión de Ventas</h1>
+    <p>Ingresa con tu correo autorizado. Te enviamos un código de 6 dígitos.</p>
+
+    <div id="loginStep1">
+      <label for="loginEmail">Correo autorizado</label>
+      <input id="loginEmail" type="email" placeholder="tucorreo@gmail.com" autocomplete="email">
+      <div style="margin-top:1rem"><button id="btnPedirCodigo" style="width:100%">Enviarme el código</button></div>
+    </div>
+
+    <div id="loginStep2" class="hidden">
+      <label for="loginCode">Código de 6 dígitos (revisa tu Gmail)</label>
+      <input id="loginCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+      <div style="margin-top:1rem"><button id="btnVerificar" style="width:100%">Ingresar</button></div>
+      <div style="margin-top:.6rem"><button id="btnVolver" class="secondary" style="width:100%">Usar otro correo</button></div>
+    </div>
+
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
+<!-- ======================= PANEL ======================= -->
+<div id="appView" class="hidden">
+  <header class="topbar">
+    <div class="brand">💼 Sistema de Gestión de Ventas y Membresías</div>
+    <div>
+      <span class="user" id="userLabel"></span>
+      <button class="secondary" id="btnRefrescar">↻ Actualizar</button>
+      <button class="secondary" id="btnSalir">Salir</button>
+    </div>
+  </header>
+
+  <div id="configWarn" class="warn hidden">⚠️ Falta configurar la URL del Web App en <b>config.js</b>. Sin eso la página no puede cargar los datos.</div>
+
+  <main>
+    <section>
+      <div class="stats">
+        <div class="stat"><div class="num" id="statActivas">–</div><div class="lbl">Activas</div></div>
+        <div class="stat"><div class="num" id="statPorVencer">–</div><div class="lbl">Por vencer</div></div>
+        <div class="stat"><div class="num" id="statVencidas">–</div><div class="lbl">Vencidas</div></div>
+        <div class="stat"><div class="num" id="statCanceladas">–</div><div class="lbl">Canceladas</div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>🔥 Cola de urgencia — por vencer y vencidas</h2>
+      <div id="urgenciaList"><p class="empty">Cargando…</p></div>
+    </section>
+
+    <section>
+      <h2>👥 Clientes</h2>
+      <div class="toolbar">
+        <input type="search" id="buscador" placeholder="Buscar por nombre, correo o MEM…">
+        <div class="filtros" id="filtros">
+          <button data-filtro="TODOS" class="active">Todos</button>
+          <button data-filtro="ACTIVA">Activas</button>
+          <button data-filtro="POR VENCER">Por vencer</button>
+          <button data-filtro="VENCIDA">Vencidas</button>
+          <button data-filtro="CANCELADA">Canceladas</button>
+        </div>
+        <button id="btnNuevaVenta">＋ Registrar venta</button>
+      </div>
+      <div class="grid" id="clientesGrid"></div>
+    </section>
+
+    <section>
+      <h2>🔑 Accesos al sistema</h2>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Correo</th><th>Nombre</th><th>Agregado por</th><th></th></tr></thead>
+            <tbody id="accesosBody"></tbody>
+          </table>
+        </div>
+        <h3 style="margin:1rem 0 .2rem;font-size:.98rem">Agregar persona</h3>
+        <div class="row-flex">
+          <div><label>Correo</label><input id="accEmail" type="email" placeholder="persona@gmail.com"></div>
+          <div><label>Nombre</label><input id="accNombre" type="text" placeholder="Nombre"></div>
+        </div>
+        <div class="actions"><button id="btnAgregarAcceso">Agregar persona</button></div>
+        <div id="accesosMsg"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>📜 Bitácora — quién hizo qué</h2>
+      <div class="card table-wrap">
+        <table>
+          <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
+          <tbody id="bitacoraBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ======================= MODALES ======================= -->
+<div id="modalRoot"></div>
+
+<script src="config.js"></script>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Utilidades
+// ---------------------------------------------------------------------------
+const API_URL = (window.SGV_CONFIG && window.SGV_CONFIG.API_URL) || "";
+const PRECIOS = { 1: 15000, 3: 30000, 6: 50000, 12: 80000 };
+const OWNER_EMAIL = "sebastiancgcg@gmail.com";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => "$" + Number(n || 0).toLocaleString("es-CO");
+
+function fechaHumana(yyyyMmDd) {
+  if (!yyyyMmDd) return "";
+  const p = String(yyyyMmDd).split("-");
+  if (p.length !== 3) return String(yyyyMmDd);
+  return p[2] + "/" + p[1] + "/" + p[0];
+}
+function hoyISO() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
+}
+
+// El POST va como text/plain a propósito: así el navegador no hace la
+// petición previa (preflight) que Apps Script no responde, y el Web App
+// recibe el JSON sin problemas desde GitHub Pages.
+async function api(action, payload) {
+  const body = Object.assign({ action: action }, payload || {});
+  const token = sessionStorage.getItem("sgv_token");
+  if (token && action !== "requestCode" && action !== "verifyCode") body.token = token;
+  const resp = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body)
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || "Error desconocido");
+  return data;
+}
+
+function showMsg(el, text, ok) {
+  el.innerHTML = '<div class="msg ' + (ok ? "ok" : "error") + '">' + esc(text) + "</div>";
+}
+
+// ---------------------------------------------------------------------------
+// Estado global
+// ---------------------------------------------------------------------------
+let STATE = { clientes: [], historial: [], accesos: [], bitacora: [] };
+let filtroActual = "TODOS";
+
+// ---------------------------------------------------------------------------
+// Login
+// ---------------------------------------------------------------------------
+$("btnPedirCodigo").addEventListener("click", async () => {
+  const email = $("loginEmail").value.trim().toLowerCase();
+  const msg = $("loginMsg");
+  if (!email) { showMsg(msg, "Escribe tu correo.", false); return; }
+  $("btnPedirCodigo").disabled = true;
+  try {
+    await api("requestCode", { email: email });
+    sessionStorage.setItem("sgv_email_pendiente", email);
+    $("loginStep1").classList.add("hidden");
+    $("loginStep2").classList.remove("hidden");
+    showMsg(msg, "Si el correo está autorizado, el código va en camino a tu Gmail. Vence en 10 minutos.", true);
+    $("loginCode").focus();
+  } catch (e) {
+    showMsg(msg, e.message, false);
+  } finally {
+    $("btnPedirCodigo").disabled = false;
+  }
+});
+
+$("btnVolver").addEventListener("click", () => {
+  $("loginStep2").classList.add("hidden");
+  $("loginStep1").classList.remove("hidden");
+  $("loginMsg").innerHTML = "";
+});
+
+$("btnVerificar").addEventListener("click", async () => {
+  const email = sessionStorage.getItem("sgv_email_pendiente") || $("loginEmail").value.trim().toLowerCase();
+  const code = $("loginCode").value.trim();
+  const msg = $("loginMsg");
+  if (code.length !== 6) { showMsg(msg, "El código tiene 6 dígitos.", false); return; }
+  $("btnVerificar").disabled = true;
+  try {
+    const data = await api("verifyCode", { email: email, code: code });
+    sessionStorage.setItem("sgv_token", data.token);
+    sessionStorage.setItem("sgv_email", data.email);
+    sessionStorage.removeItem("sgv_email_pendiente");
+    entrarAlPanel();
+  } catch (e) {
+    showMsg(msg, e.message, false);
+  } finally {
+    $("btnVerificar").disabled = false;
+  }
+});
+
+$("btnSalir").addEventListener("click", async () => {
+  try { await api("logout", {}); } catch (e) { /* la sesión local se cierra igual */ }
+  sessionStorage.removeItem("sgv_token");
+  sessionStorage.removeItem("sgv_email");
+  location.reload();
+});
+
+function entrarAlPanel() {
+  $("loginView").classList.add("hidden");
+  $("appView").classList.remove("hidden");
+  $("userLabel").textContent = sessionStorage.getItem("sgv_email") || "";
+  if (!API_URL || API_URL.indexOf("PEGAR_URL") === 0) $("configWarn").classList.remove("hidden");
+  cargarEstado();
+}
+</script>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Carga y dibujo del panel
+// ---------------------------------------------------------------------------
+async function cargarEstado() {
+  try {
+    const data = await api("getState", {});
+    STATE = { clientes: data.clientes, historial: data.historial, accesos: data.accesos, bitacora: data.bitacora };
+    dibujarTodo();
+  } catch (e) {
+    if (/Sesión/.test(e.message)) {
+      sessionStorage.removeItem("sgv_token");
+      location.reload();
+      return;
+    }
+    alert("No se pudieron cargar los datos: " + e.message);
+  }
+}
+$("btnRefrescar").addEventListener("click", cargarEstado);
+
+function dibujarTodo() {
+  dibujarContadores();
+  dibujarUrgencia();
+  dibujarClientes();
+  dibujarAccesos();
+  dibujarBitacora();
+}
+
+function dibujarContadores() {
+  const c = { ACTIVA: 0, "POR VENCER": 0, VENCIDA: 0, CANCELADA: 0 };
+  STATE.clientes.forEach((cl) => { if (c[cl.estado] !== undefined) c[cl.estado]++; });
+  $("statActivas").textContent = c.ACTIVA;
+  $("statPorVencer").textContent = c["POR VENCER"];
+  $("statVencidas").textContent = c.VENCIDA;
+  $("statCanceladas").textContent = c.CANCELADA;
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp de renovación
+// ---------------------------------------------------------------------------
+function telefonoWa(telefono) {
+  let t = String(telefono || "").replace(/\D/g, "");
+  if (t.length === 10) t = "57" + t; // número colombiano sin indicativo
+  return t;
+}
+
+function mensajeRenovacion(cl) {
+  const fecha = fechaHumana(cl.fechaVencimiento);
+  if (cl.estado === "VENCIDA") {
+    return "hola " + cl.cliente + ", buenas tardes 👋 te escribimos de ventas de membresías: tu membresía gemini (google ai pro) venció el " + fecha + ". ¿deseas renovarla y reactivarla? tenemos 1 mes 15.000, 3 meses 30.000, 6 meses 50.000 y 1 año 80.000 ⭐";
+  }
+  return "hola " + cl.cliente + ", buenas tardes 👋 te escribimos de ventas de membresías: tu membresía gemini (google ai pro) vence el " + fecha + ". ¿deseas renovarla para que no se te corte el servicio? tenemos 1 mes 15.000, 3 meses 30.000, 6 meses 50.000 y 1 año 80.000 ⭐";
+}
+
+function linkWhatsApp(cl) {
+  const tel = telefonoWa(cl.telefono);
+  if (!tel) return "";
+  return "https://wa.me/" + tel + "?text=" + encodeURIComponent(mensajeRenovacion(cl));
+}
+
+function dibujarUrgencia() {
+  const urgentes = STATE.clientes
+    .filter((cl) => cl.estado === "VENCIDA" || cl.estado === "POR VENCER")
+    .sort((a, b) => String(a.fechaVencimiento).localeCompare(String(b.fechaVencimiento)));
+  const el = $("urgenciaList");
+  if (!urgentes.length) { el.innerHTML = '<p class="empty">Nadie está por vencer ni vencido. 🎉</p>'; return; }
+  el.innerHTML = urgentes.map((cl) => {
+    const wa = linkWhatsApp(cl);
+    const btn = wa
+      ? '<a class="wa-btn" target="_blank" rel="noopener" href="' + wa + '">💬 WhatsApp renovación</a>'
+      : '<span class="meta">sin teléfono registrado</span>';
+    return '<div class="urgencia-item"><div>' +
+      '<span class="badge ' + cl.estado + '">' + cl.estado + "</span> " +
+      "<b>" + esc(cl.cliente) + "</b> <span class='meta'>(" + esc(cl.codigo) + ")</span><br>" +
+      '<span class="meta">' + (cl.estado === "VENCIDA" ? "Venció" : "Vence") + " el " + fechaHumana(cl.fechaVencimiento) + " · " + esc(cl.telefono || "") + "</span></div>" +
+      "<div>" + btn + "</div></div>";
+  }).join("");
+}
+
+// ---------------------------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------------------------
+$("buscador").addEventListener("input", dibujarClientes);
+$("filtros").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-filtro]");
+  if (!btn) return;
+  filtroActual = btn.dataset.filtro;
+  document.querySelectorAll("#filtros button").forEach((b) => b.classList.toggle("active", b === btn));
+  dibujarClientes();
+});
+
+function dibujarClientes() {
+  const q = $("buscador").value.trim().toLowerCase();
+  const lista = STATE.clientes.filter((cl) => {
+    if (filtroActual !== "TODOS" && cl.estado !== filtroActual) return false;
+    if (!q) return true;
+    return (cl.cliente + " " + cl.correo + " " + cl.codigo).toLowerCase().indexOf(q) >= 0;
+  });
+  const grid = $("clientesGrid");
+  if (!lista.length) { grid.innerHTML = '<p class="empty">No hay clientes con ese criterio.</p>'; return; }
+  grid.innerHTML = lista.map((cl) =>
+    '<button class="cliente-card" data-codigo="' + esc(cl.codigo) + '">' +
+      '<div class="top"><span class="nombre">' + esc(cl.cliente) + '</span><span class="badge ' + cl.estado + '">' + cl.estado + "</span></div>" +
+      '<div class="detalle">' + esc(cl.codigo) + " · vence " + fechaHumana(cl.fechaVencimiento) + "<br>" +
+      esc(cl.correo) + "<br>" + esc(cl.telefono || "") + "</div>" +
+      '<div style="margin-top:.5rem"><span class="chip">Renovaciones: ' + cl.renovaciones + "</span></div>" +
+    "</button>"
+  ).join("");
+  grid.querySelectorAll(".cliente-card").forEach((card) => {
+    card.addEventListener("click", () => abrirFicha(card.dataset.codigo));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Modales
+// ---------------------------------------------------------------------------
+function cerrarModal() { $("modalRoot").innerHTML = ""; }
+
+function abrirModal(html) {
+  $("modalRoot").innerHTML = '<div class="modal-back"><div class="modal">' +
+    '<button class="close-x" id="modalClose">✕</button>' + html + "</div></div>";
+  $("modalClose").addEventListener("click", cerrarModal);
+  $("modalRoot").querySelector(".modal-back").addEventListener("click", (ev) => {
+    if (ev.target.classList.contains("modal-back")) cerrarModal();
+  });
+}
+
+function abrirFicha(codigo) {
+  const cl = STATE.clientes.find((x) => x.codigo === codigo);
+  if (!cl) return;
+  const eventos = STATE.historial.filter((h) => h.codigo === codigo);
+  const hist = eventos.length
+    ? eventos.map((h) =>
+        '<div class="historial-item"><span class="tipo">' + esc(h.tipo) + "</span> · activada el " + fechaHumana(h.fechaActivacion) +
+        "<br>" + esc(h.duracion) + " · " + money(h.precio) + " · nuevo vencimiento: " + fechaHumana(h.nuevoVencimiento) + "</div>"
+      ).join("")
+    : '<p class="empty">Sin eventos en el historial.</p>';
+  const wa = linkWhatsApp(cl);
+  abrirModal(
+    "<h3>" + esc(cl.cliente) + "</h3>" +
+    '<p><span class="badge ' + cl.estado + '">' + cl.estado + '</span> <span class="chip">Renovaciones: ' + cl.renovaciones + "</span></p>" +
+    '<div class="detalle" style="color:var(--muted);line-height:1.6">' +
+      "Código: <b>" + esc(cl.codigo) + "</b><br>" +
+      "Correo: " + esc(cl.correo) + "<br>" +
+      "Teléfono: " + esc(cl.telefono || "—") + "<br>" +
+      "Correo de membresía: " + esc(cl.correoMembresia || "—") + "<br>" +
+      "Inicio actual: " + fechaHumana(cl.fechaInicio) + " · Vencimiento: <b>" + fechaHumana(cl.fechaVencimiento) + "</b><br>" +
+      "Plan actual: " + esc(cl.duracion) + " · " + money(cl.precio) +
+    "</div>" +
+    (wa ? '<div class="actions"><a class="wa-btn" target="_blank" rel="noopener" href="' + wa + '">💬 WhatsApp renovación</a></div>' : "") +
+    "<h3 style='margin-top:1.2rem'>Historial</h3>" + hist +
+    '<div class="actions">' +
+      '<button id="fichaRenovar">🔄 Renovar</button>' +
+      (cl.estado !== "CANCELADA" ? '<button class="danger" id="fichaCancelar">Cancelar membresía</button>' : "") +
+    "</div>" +
+    '<div id="fichaZona"></div>'
+  );
+  $("fichaRenovar").addEventListener("click", () => mostrarFormRenovar(cl));
+  const btnCancelar = $("fichaCancelar");
+  if (btnCancelar) btnCancelar.addEventListener("click", async () => {
+    if (!confirm("¿Cancelar la membresía de " + cl.cliente + " (" + cl.codigo + ")?")) return;
+    btnCancelar.disabled = true;
+    try {
+      await api("cancel", { codigo: cl.codigo });
+      cerrarModal();
+      await cargarEstado();
+    } catch (e) { alert(e.message); btnCancelar.disabled = false; }
+  });
+}
+
+function opcionesDuracion() {
+  return '<option value="1">1 mes — $15.000</option>' +
+    '<option value="3">3 meses — $30.000</option>' +
+    '<option value="6" selected>6 meses — $50.000</option>' +
+    '<option value="12">1 año — $80.000</option>';
+}
+
+function mostrarFormRenovar(cl) {
+  $("fichaZona").innerHTML =
+    "<h3 style='margin-top:1.2rem'>Renovar " + esc(cl.codigo) + "</h3>" +
+    "<label>Fecha en que activó la renovación</label>" +
+    '<input type="date" id="renFecha" value="' + hoyISO() + '">' +
+    '<div class="row-flex"><div><label>Duración</label><select id="renDuracion">' + opcionesDuracion() + "</select></div>" +
+    '<div><label>Precio (COP)</label><input type="number" id="renPrecio" value="' + PRECIOS[6] + '" min="0"></div></div>' +
+    '<label class="toggle"><input type="checkbox" id="renCortado"> El servicio SÍ se cortó (el nuevo periodo arranca el día de la activación; si no marcas esto, arranca el día que venció el anterior)</label>' +
+    '<div class="actions"><button id="renConfirmar">Confirmar renovación</button></div>' +
+    '<div id="renMsg"></div>';
+  $("renDuracion").addEventListener("change", () => {
+    $("renPrecio").value = PRECIOS[Number($("renDuracion").value)] || "";
+  });
+  $("renConfirmar").addEventListener("click", async () => {
+    const btn = $("renConfirmar");
+    btn.disabled = true;
+    try {
+      await api("renew", {
+        codigo: cl.codigo,
+        fechaActivacion: $("renFecha").value,
+        duracionMeses: Number($("renDuracion").value),
+        precio: Number($("renPrecio").value),
+        servicioCortado: $("renCortado").checked
+      });
+      cerrarModal();
+      await cargarEstado();
+    } catch (e) {
+      showMsg($("renMsg"), e.message, false);
+      btn.disabled = false;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Registrar venta
+// ---------------------------------------------------------------------------
+$("btnNuevaVenta").addEventListener("click", () => {
+  abrirModal(
+    "<h3>Registrar venta</h3>" +
+    "<label>Nombre del cliente</label><input id='vCliente' type='text'>" +
+    "<label>Correo del cliente</label><input id='vCorreo' type='email'>" +
+    '<div class="row-flex"><div><label>Teléfono / WhatsApp</label><input id="vTelefono" type="text" placeholder="+57 300 000 0000"></div>' +
+    '<div><label>Correo de membresía (cuenta donde se activa)</label><input id="vCorreoMem" type="email"></div></div>' +
+    '<div class="row-flex"><div><label>Fecha de inicio</label><input id="vFecha" type="date" value="' + hoyISO() + '"></div>' +
+    '<div><label>Duración</label><select id="vDuracion">' + opcionesDuracion() + "</select></div>" +
+    '<div><label>Precio (COP)</label><input id="vPrecio" type="number" value="' + PRECIOS[6] + '" min="0"></div></div>' +
+    '<div class="actions"><button id="vGuardar">Guardar venta</button></div>' +
+    '<div id="vMsg"></div>'
+  );
+  $("vDuracion").addEventListener("change", () => {
+    $("vPrecio").value = PRECIOS[Number($("vDuracion").value)] || "";
+  });
+  $("vGuardar").addEventListener("click", async () => {
+    const btn = $("vGuardar");
+    btn.disabled = true;
+    try {
+      await api("createSale", {
+        cliente: $("vCliente").value.trim(),
+        correo: $("vCorreo").value.trim(),
+        telefono: $("vTelefono").value.trim(),
+        correoMembresia: $("vCorreoMem").value.trim(),
+        fechaInicio: $("vFecha").value,
+        duracionMeses: Number($("vDuracion").value),
+        precio: Number($("vPrecio").value)
+      });
+      cerrarModal();
+      await cargarEstado();
+    } catch (e) {
+      showMsg($("vMsg"), e.message, false);
+      btn.disabled = false;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accesos
+// ---------------------------------------------------------------------------
+function dibujarAccesos() {
+  const body = $("accesosBody");
+  body.innerHTML = STATE.accesos.map((a) =>
+    "<tr><td>" + esc(a.email) + "</td><td>" + esc(a.nombre) + "</td><td>" + esc(a.agregadoPor) + "</td>" +
+    "<td>" + (a.email === OWNER_EMAIL
+      ? '<span class="meta" style="color:var(--muted)">dueño</span>'
+      : '<button class="danger" data-quitar="' + esc(a.email) + '">Quitar acceso</button>') + "</td></tr>"
+  ).join("");
+  body.querySelectorAll("button[data-quitar]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const email = btn.dataset.quitar;
+      if (!confirm("¿Quitarle el acceso a " + email + "? Ya no podrá recibir código ni entrar.")) return;
+      btn.disabled = true;
+      try {
+        await api("removeAccess", { email: email });
+        await cargarEstado();
+      } catch (e) { alert(e.message); btn.disabled = false; }
+    });
+  });
+}
+
+$("btnAgregarAcceso").addEventListener("click", async () => {
+  const btn = $("btnAgregarAcceso");
+  const msg = $("accesosMsg");
+  btn.disabled = true;
+  try {
+    await api("addAccess", { email: $("accEmail").value.trim(), nombre: $("accNombre").value.trim() });
+    $("accEmail").value = "";
+    $("accNombre").value = "";
+    showMsg(msg, "Acceso agregado. Esa persona ya puede pedir su código de ingreso.", true);
+    await cargarEstado();
+  } catch (e) {
+    showMsg(msg, e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Bitácora
+// ---------------------------------------------------------------------------
+function dibujarBitacora() {
+  const body = $("bitacoraBody");
+  if (!STATE.bitacora.length) {
+    body.innerHTML = '<tr><td colspan="4" class="empty">Sin movimientos registrados todavía.</td></tr>';
+    return;
+  }
+  body.innerHTML = STATE.bitacora.map((b) =>
+    "<tr><td>" + esc(b.fecha) + "</td><td>" + esc(b.correo) + "</td><td><b>" + esc(b.accion) + "</b></td><td>" + esc(b.detalle) + "</td></tr>"
+  ).join("");
+}
+
+// ---------------------------------------------------------------------------
+// Arranque: si ya hay token guardado, entrar directo
+// ---------------------------------------------------------------------------
+if (sessionStorage.getItem("sgv_token")) {
+  entrarAlPanel();
+}
+</script>
+</body>
+</html>
