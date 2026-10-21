@@ -497,6 +497,7 @@ function createSale_(body, actor) {
   var duracionMeses = Number(body.duracionMeses);
   var precio = toNumber_(body.precio);
   var fechaInicio = dateStr_(body.fechaInicio) || todayStr_();
+  var servicio = String(body.servicio || '').trim() || 'Gemini (Google AI Pro)';
   if (!cliente || !correo) return { ok: false, error: 'Faltan el nombre del cliente o su correo.' };
   if (!duracionMeses || duracionMeses <= 0) return { ok: false, error: 'Duración no válida.' };
 
@@ -506,7 +507,7 @@ function createSale_(body, actor) {
     var vencimiento = addMonths_(fechaInicio, duracionMeses);
     sheet_(SHEETS.REGISTROS).appendRow([
       codigo, fechaInicio, cliente, correo, vencimiento,
-      'gemini', duracionLabel_(duracionMeses), precio, 'ACTIVA',
+      servicio, duracionLabel_(duracionMeses), precio, 'ACTIVA',
       String(body.correoMembresia || ''), String(body.telefono || ''), 0
     ]);
     appendHistorial_({
@@ -515,7 +516,7 @@ function createSale_(body, actor) {
       duracion: duracionLabel_(duracionMeses), precio: precio,
       nuevoVencimiento: vencimiento
     });
-    log_(actor, 'Registró venta', codigo + ' · ' + cliente + ' · ' + duracionLabel_(duracionMeses) + ' · $' + precio);
+    log_(actor, 'Registró venta', codigo + ' · ' + cliente + ' · ' + servicio + ' · ' + duracionLabel_(duracionMeses) + ' · $' + precio);
     return { codigo: codigo, vencimiento: vencimiento };
   });
   return { ok: true, codigo: creado.codigo, fechaVencimiento: creado.vencimiento };
