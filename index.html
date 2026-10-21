@@ -458,7 +458,15 @@ function abrirFicha(codigo) {
       ).join("")
     : '<p class="empty">Sin eventos en el historial.</p>';
   const wa = linkWhatsApp(cl);
+  const servMin = String(cl.servicio || "").toLowerCase();
+  const esGemini = servMin.indexOf("gemini") !== -1 || servMin.indexOf("google ai") !== -1;
+  const linkFamilia = (esGemini && cl.correoMembresia)
+    ? "https://accounts.google.com/signin/v2/identifier?flowName=GlifWebSignIn&flowEntry=ServiceLogin&login_hint=" +
+      encodeURIComponent(cl.correoMembresia) +
+      "&continue=" + encodeURIComponent("https://myaccount.google.com/family/details?continue=https%3A%2F%2Fmyaccount.google.com%2F")
+    : "";
   abrirModal(
+
     "<h3>" + esc(cl.cliente) + "</h3>" +
     '<p><span class="badge ' + cl.estado + '">' + cl.estado + '</span> <span class="chip">Renovaciones: ' + cl.renovaciones + "</span></p>" +
     '<div class="detalle" style="color:var(--muted);line-height:1.6">' +
@@ -476,6 +484,10 @@ function abrirFicha(codigo) {
       '<button id="fichaRenovar">🔄 Renovar</button>' +
       (cl.estado !== "CANCELADA" ? '<button class="danger" id="fichaCancelar">Cancelar membresía</button>' : "") +
     "</div>" +
+    (linkFamilia
+      ? '<div class="actions"><a class="wa-btn" style="background:#ea4335" target="_blank" rel="noopener" href="' + linkFamilia + '">👨‍👩‍👧 Quitar de la familia Google</a></div>' +
+        '<p style="color:var(--muted);font-size:.85rem;margin:.2rem 0 0">Abre el ingreso a <b>' + esc(cl.correoMembresia) + '</b> (solo pones la contraseña) y te lleva directo a la familia de Google para quitar al cliente. En incógnito: clic derecho en el botón → "Abrir enlace en ventana de incógnito".</p>'
+      : "") +
     '<div id="fichaZona"></div>'
   );
   $("fichaRenovar").addEventListener("click", () => mostrarFormRenovar(cl));
