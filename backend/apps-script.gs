@@ -614,3 +614,394 @@ function removeAccess_(body, actor) {
     return { ok: false, error: 'Ese correo no estaba en la lista de accesos.' };
   });
 }
+
+
+/**
+ * ============================================================
+ * COMPATIBILIDAD CON LOS BOTONES DE LA HOJA (INICIO)
+ * ------------------------------------------------------------
+ * Estas son las funciones ORIGINALES de la hoja, conservadas
+ * tal cual para que los botones REGISTRAR VENTA y
+ * CANCELAR MEMBRESÍA de la pestaña INICIO sigan funcionando
+ * igual que siempre. El sistema web usa las funciones de
+ * arriba; estas dos son solo para los botones de la hoja.
+ * ============================================================
+ */
+
+function registrarVenta() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const inicioSheet = ss.getSheetByName("INICIO");
+  const registrosSheet = ss.getSheetByName("REGISTROS");
+
+  // 1. VERIFICAR HOJAS
+  if (!inicioSheet || !registrosSheet) {
+    SpreadsheetApp.getUi().alert(
+      "ERROR: No se encontró la hoja INICIO o REGISTROS."
+    );
+    return;
+  }
+
+  // 2. LEER DATOS DEL FORMULARIO
+  const fecha = inicioSheet.getRange("D5").getValue();
+
+  const cliente = String(
+    inicioSheet.getRange("D6").getValue()
+  ).trim();
+
+  const duracion = String(
+    inicioSheet.getRange("D7").getValue()
+  ).trim();
+
+  const servicio = String(
+    inicioSheet.getRange("D8").getValue()
+  ).trim();
+
+  const correo = String(
+    inicioSheet.getRange("D9").getValue()
+  ).trim();
+
+  const precio = inicioSheet.getRange("D10").getValue();
+
+  // NUEVO: leer el teléfono del formulario
+  const telefono = inicioSheet.getRange("D11").getDisplayValue().trim();
+
+  const correoMembresia = String(
+    inicioSheet.getRange("D12").getValue()
+  ).trim();
+
+  // 3. VALIDAR DATOS
+  if (!cliente) {
+    SpreadsheetApp.getUi().alert(
+      "⚠️ Debes ingresar el Nombre del Cliente."
+    );
+    return;
+  }
+
+  if (!servicio) {
+    SpreadsheetApp.getUi().alert(
+      "⚠️ Debes seleccionar el Servicio / Membresía."
+    );
+    return;
+  }
+
+  if (!correo) {
+    SpreadsheetApp.getUi().alert(
+      "⚠️ Debes ingresar el Correo Electrónico."
+    );
+    return;
+  }
+
+  if (!correoMembresia) {
+    SpreadsheetApp.getUi().alert(
+      "⚠️ Debes ingresar el Correo de Membresía."
+    );
+    return;
+  }
+
+  // 4. EVITAR DOS CÓDIGOS IGUALES
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+  } catch (error) {
+    SpreadsheetApp.getUi().alert(
+      "⚠️ El sistema está ocupado. Intenta nuevamente."
+    );
+    return;
+  }
+
+  try {
+    // 5. ENCONTRAR LA PRIMERA FILA LIBRE
+    const ultimaFila = Math.max(
+      registrosSheet.getLastRow(),
+      1
+    );
+
+    let targetRow = 2;
+
+    for (
+      let fila = 2;
+      fila <= ultimaFila + 1;
+      fila++
+    ) {
+      const valores = registrosSheet
+        .getRange(fila, 1, 1, 10)
+        .getValues()[0];
+
+      const filaVacia = valores.every(
+        valor => valor === "" || valor === null
+      );
+
+      if (filaVacia) {
+        targetRow = fila;
+        break;
+      }
+    }
+
+    // 6. GENERAR CÓDIGO ÚNICO
+    const codigos = registrosSheet
+      .getRange(
+        2,
+        1,
+        Math.max(ultimaFila - 1, 1),
+        1
+      )
+      .getDisplayValues()
+      .flat();
+
+    let mayorNumero = 0;
+
+    codigos.forEach(codigo => {
+      if (!codigo) return;
+
+      const texto = String(codigo).trim();
+
+      const coincidencia = texto.match(
+        /^MEM-(\d+)$/
+      );
+
+      if (coincidencia) {
+        const numero = parseInt(
+          coincidencia[1],
+          10
+        );
+
+        if (numero > mayorNumero) {
+          mayorNumero = numero;
+        }
+      }
+    });
+
+    const nuevoNumero = mayorNumero + 1;
+
+    const codigo = "MEM-" +
+      String(nuevoNumero).padStart(6, "0");
+
+    // 7. GUARDAR EL REGISTRO
+    // A = Código
+    registrosSheet
+      .getRange(targetRow, 1)
+      .setValue(codigo);
+
+    // B = Fecha de Inicio
+    registrosSheet
+      .getRange(targetRow, 2)
+      .setValue(fecha || new Date());
+
+    // C = Cliente
+    registrosSheet
+      .getRange(targetRow, 3)
+      .setValue(cliente);
+
+    // D = Correo Electrónico
+    registrosSheet
+      .getRange(targetRow, 4)
+      .setValue(correo);
+
+    // 8. FECHA DE VENCIMIENTO
+    const formulaVencimiento =
+      `=IF(OR(B${targetRow}="",G${targetRow}=""),"",` +
+      `EDATE(B${targetRow},` +
+      `SWITCH(TRIM(G${targetRow}),` +
+      `"1 mes",1,` +
+      `"3 meses",3,` +
+      `"6 meses",6,` +
+      `"12 meses",12,1)))`;
+
+    registrosSheet
+      .getRange(targetRow, 5)
+      .setFormula(formulaVencimiento);
+
+    // F = Servicio
+    registrosSheet
+      .getRange(targetRow, 6)
+      .setValue(servicio);
+
+    // G = Duración
+    registrosSheet
+      .getRange(targetRow, 7)
+      .setValue(duracion);
+
+    // H = Precio
+    registrosSheet
+      .getRange(targetRow, 8)
+      .setValue(precio);
+
+    // 9. ESTADO AUTOMÁTICO
+    const formulaEstado =
+      `=IF(OR(B${targetRow}="",E${targetRow}=""),"",` +
+      `IF(E${targetRow}<TODAY(),"VENCIDA",` +
+      `IF(E${targetRow}<=TODAY()+3,"POR VENCER","ACTIVA")))`;
+
+    registrosSheet
+      .getRange(targetRow, 9)
+      .setFormula(formulaEstado);
+
+    // J = Correo de Membresía
+    registrosSheet
+      .getRange(targetRow, 10)
+      .setValue(correoMembresia);
+
+    // NUEVO: K = Teléfono / Contacto
+    registrosSheet
+      .getRange(targetRow, 11)
+      .setValue(telefono);
+
+    // 10. APLICAR FORMATO DE LA FILA ANTERIOR
+    // Ahora se copia el formato hasta la columna K.
+    if (targetRow > 2) {
+      registrosSheet
+        .getRange(targetRow - 1, 1, 1, 11)
+        .copyTo(
+          registrosSheet.getRange(
+            targetRow,
+            1,
+            1,
+            11
+          ),
+          SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
+          false
+        );
+    }
+
+    // 11. FORZAR ACTUALIZACIÓN
+    SpreadsheetApp.flush();
+
+    // 12. LIMPIAR FORMULARIO
+    inicioSheet
+      .getRange("D6")
+      .clearContent();
+
+    inicioSheet
+      .getRange("D8")
+      .clearContent();
+
+    inicioSheet
+      .getRange("D9")
+      .clearContent();
+
+    inicioSheet
+      .getRange("D10")
+      .clearContent();
+
+    inicioSheet
+      .getRange("D11")
+      .clearContent();
+
+    inicioSheet
+      .getRange("D12")
+      .clearContent();
+
+    // Fecha actual
+    inicioSheet
+      .getRange("D5")
+      .setValue(new Date());
+
+    // 13. MOSTRAR REGISTROS
+    ss.setActiveSheet(registrosSheet);
+
+    SpreadsheetApp.flush();
+
+    // 14. MENSAJE DE CONFIRMACIÓN
+    ss.toast(
+      `✅ Venta de "${cliente}" registrada correctamente.\nCódigo: ${codigo}`,
+      "REGISTRO EXITOSO",
+      5
+    );
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+function cancelarMembresia() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaInicio = ss.getSheetByName("INICIO");
+  const hojaRegistros = ss.getSheetByName("REGISTROS");
+  const ui = SpreadsheetApp.getUi();
+
+  // El código se toma de I5 en INICIO
+  const codigo = hojaInicio.getRange("I5").getValue().toString().trim();
+
+  if (!codigo) {
+    ui.alert(
+      "Atención",
+      "Por favor introduce un código de membresía.",
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const ultimaFila = hojaRegistros.getLastRow();
+
+  if (ultimaFila < 2) {
+    ui.alert(
+      "Error",
+      "No existen registros de membresías.",
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const datos = hojaRegistros
+    .getRange(2, 1, ultimaFila - 1, 10)
+    .getValues();
+
+  let filaEncontrada = -1;
+  let estadoActual = "";
+
+  for (let i = 0; i < datos.length; i++) {
+    const codigoRegistro = datos[i][0]
+      .toString()
+      .trim()
+      .toUpperCase();
+
+    if (codigoRegistro === codigo.toUpperCase()) {
+      filaEncontrada = i + 2;
+      estadoActual = datos[i][8]
+        .toString()
+        .trim()
+        .toUpperCase();
+      break;
+    }
+  }
+
+  if (filaEncontrada === -1) {
+    ui.alert(
+      "Error",
+      "No se encontró ninguna membresía con el código: " + codigo,
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  if (estadoActual === "CANCELADA") {
+    ui.alert(
+      "Aviso",
+      "Esta membresía ya se encuentra cancelada.",
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const respuesta = ui.alert(
+    "Confirmación",
+    "¿Deseas cancelar la membresía " + codigo + "?",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta === ui.Button.YES) {
+    // Columna I = Estado
+    hojaRegistros.getRange(filaEncontrada, 9).setValue("CANCELADA");
+
+    SpreadsheetApp.flush();
+
+    ui.alert(
+      "Éxito",
+      "La membresía " + codigo + " ha sido cancelada correctamente.",
+      ui.ButtonSet.OK
+    );
+  }
+}
