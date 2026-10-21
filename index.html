@@ -575,7 +575,7 @@ $("btnNuevaVenta").addEventListener("click", () => {
     "<label>Correo del cliente</label><input id='vCorreo' type='email'>" +
     "<label>Servicio / Membresía</label><input id='vServicio' type='text' value='Gemini (Google AI Pro)'>" +
     '<div class="row-flex"><div><label>Teléfono / WhatsApp</label><input id="vTelefono" type="text" placeholder="+57 300 000 0000"></div>' +
-    '<div><label>Correo de membresía (el sistema recomienda)</label><select id="vCorreoMem"></select></div></div>' +
+    '<div><label>Correo de membresía (el sistema recomienda)</label><select id="vCorreoMem"></select><input id="vCorreoMemOtro" type="email" class="hidden" style="margin-top:.4rem" placeholder="Escribe el correo de la cuenta"></div></div>' +
     '<div class="actions"><a class="btn-vincular hidden" id="vVincular" target="_blank" rel="noopener" href="#">🔗 Vincular a membresía (agregarlo a la familia)</a></div>' +
     '<div class="row-flex"><div><label>Fecha de inicio</label><input id="vFecha" type="date" value="' + hoyISO() + '"></div>' +
     '<div><label>Duración</label><select id="vDuracion">' + opcionesDuracion() + "</select></div>" +
@@ -586,21 +586,33 @@ $("btnNuevaVenta").addEventListener("click", () => {
   const cuentasMem = STATE.cuentasGemini || [];
   const recMem = cuentaRecomendada();
   const selMem = $("vCorreoMem");
+  const inpOtro = $("vCorreoMemOtro");
+  const valorCorreoMem = () => {
+    const s = $("vCorreoMem");
+    if (!s) return "";
+    if (s.tagName === "INPUT") return s.value.trim();
+    return s.value === "__otro__" ? (inpOtro ? inpOtro.value.trim() : "") : s.value;
+  };
   if (cuentasMem.length) {
     selMem.innerHTML = cuentasMem.map((c) =>
       '<option value="' + esc(c.correo) + '"' + (recMem && c.correo === recMem.correo ? " selected" : "") + ">" +
       esc(c.correo) + " — " + c.usados + "/" + CUPO_CUENTA + (c.usados >= CUPO_CUENTA ? " (llena)" : "") +
       (recMem && c.correo === recMem.correo ? " ⭐ recomendada" : "") + "</option>"
-    ).join("");
+    ).join("") + '<option value="__otro__">✏️ Otro correo (escribirlo a mano)</option>';
   } else {
     selMem.outerHTML = '<input id="vCorreoMem" type="email" placeholder="cuenta@gmail.com">';
+    if (inpOtro) inpOtro.remove();
   }
   const actVincular = () => {
     const v = $("vVincular");
-    const correoSel = $("vCorreoMem").value;
+    const s = $("vCorreoMem");
+    if (inpOtro && s && s.tagName === "SELECT") inpOtro.classList.toggle("hidden", s.value !== "__otro__");
+    const correoSel = valorCorreoMem();
     if (correoSel) { v.href = linkFamiliaDe(correoSel); v.classList.remove("hidden"); }
+    else { v.classList.add("hidden"); }
   };
   $("vCorreoMem").addEventListener("change", actVincular);
+  if (inpOtro) inpOtro.addEventListener("input", actVincular);
   actVincular();
   $("vGuardar").addEventListener("click", async () => {
     const btn = $("vGuardar");
@@ -611,7 +623,7 @@ $("btnNuevaVenta").addEventListener("click", () => {
         correo: $("vCorreo").value.trim(),
         servicio: $("vServicio").value.trim(),
         telefono: $("vTelefono").value.trim(),
-        correoMembresia: $("vCorreoMem").value.trim(),
+        correoMembresia: valorCorreoMem(),
         fechaInicio: $("vFecha").value,
         duracionMeses: Number($("vDuracion").value),
         precio: Number($("vPrecio").value)
