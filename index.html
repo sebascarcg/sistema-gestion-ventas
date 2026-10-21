@@ -192,7 +192,7 @@
 <!-- ======================= MODALES ======================= -->
 <div id="modalRoot"></div>
 
-<script src="config.js"></script>
+<script src="config.js?v=20261021-2"></script>
 <script>
 "use strict";
 // ---------------------------------------------------------------------------
@@ -231,7 +231,15 @@ async function api(action, payload) {
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(body)
   });
-  const data = await resp.json();
+  const text = await resp.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    // El servidor respondió una página HTML en vez de datos (p. ej. una
+    // versión vieja de la página quedó en la caché del navegador).
+    throw new Error("El servidor respondió algo inesperado. Recarga la página con Ctrl+F5 e inténtalo de nuevo.");
+  }
   if (!data.ok) throw new Error(data.error || "Error desconocido");
   return data;
 }
