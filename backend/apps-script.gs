@@ -41,7 +41,8 @@ var SHEETS = {
   HISTORIAL: 'HISTORIAL',
   ACCESOS:   'ACCESOS',
   BITACORA:  'BITACORA',
-  SESIONES:  'SESIONES' // oculta: guarda hashes de tokens, nunca el token
+  SESIONES:  'SESIONES', // oculta: guarda hashes de tokens, nunca el token
+  GEMINI:    'GEMINI'
 };
 
 var HEADERS = {
@@ -90,6 +91,7 @@ function doPost(e) {
       case 'cancel':       result = cancel_(body, actor);            break;
       case 'addAccess':    result = addAccess_(body, actor);        break;
       case 'removeAccess': result = removeAccess_(body, actor);     break;
+      case 'addCuentaGemini': result = addCuentaGemini_(body, actor); break;
       case 'logout':
         revokeSession_(body.token);
         result = { ok: true };
@@ -436,7 +438,8 @@ function getState_() {
     clientes: readClientes_(),
     historial: readHistorial_(),
     accesos: readAccesos_(),
-    bitacora: readBitacora_(100)
+    bitacora: readBitacora_(100),
+    cuentasGemini: readCuentasGemini_()
   };
 }
 
@@ -510,6 +513,9 @@ function createSale_(body, actor) {
       servicio, duracionLabel_(duracionMeses), precio, 'ACTIVA',
       String(body.correoMembresia || ''), String(body.telefono || ''), 0
     ]);
+    if (servicio.toLowerCase().indexOf('gemini') !== -1 || servicio.toLowerCase().indexOf('google ai') !== -1) {
+      geminiMarcarEspacio_(String(body.correoMembresia || ''));
+    }
     appendHistorial_({
       codigo: codigo, cliente: cliente, tipo: 'Compra',
       fechaActivacion: fechaInicio, inicioPeriodo: fechaInicio,
@@ -1005,4 +1011,65 @@ function cancelarMembresia() {
       ui.ButtonSet.OK
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cuentas de membresía (pestaña GEMINI)
+// ---------------------------------------------------------------------------
+
+/** Lee las cuentas de membresía y cuántos espacios llevan ocupados (✓). */
+function readCuentasGemini_() {
+  var sh = sheet_(SHEETS.GEMINI);
+  var values = sh.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < values.length; i++) {
+    var correo = String(values[i][0] || '').trim();
+    if (!correo) continue;
+    var usados = 0;
+    for (var j = 1; j <= 5 && j < values[i].length; j++) {
+      if (String(values[i][j]).trim() !== '') usados++;
+    }
+    out.push({ correo: correo, usados: usados, espacios: 5 });
+  }
+  return out;
+}
+
+/**
+ * Marca un ✓ en el primer espacio libre de la cuenta en GEMINI.
+ * Si la cuenta no existe en la pestaña, la crea con su primer ✓.
+ * Si ya tiene los 5 espacios llenos, no marca nada.
+ */
+function geminiMarcarEspacio_(correoMembresia) {
+  var correo = String(correoMembresia || '').trim();
+  if (!correo) return;
+  var sh = sheet_(SHEETS.GEMINI);
+  var values = sh.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0] || '').trim().toLowerCase() === correo.toLowerCase()) {
+      for (var j = 1; j <= 5; j++) {
+        var celda = sh.getRange(i + 1, j + 1);
+        if (String(celda.getValue()).trim() === '') { celda.setValue('✓'); return; }
+      }
+      return;
+    }
+  }
+  sh.appendRow([correo, '✓', '', '', '', '']);
+}
+
+/** Agrega una cuenta de membresía nueva a la pestaña GEMINI (sin espacios usados). */
+function addCuentaGemini_(body, actor) {
+  var correo = normalizeEmail_(body.correo);
+  if (!correo || correo.indexOf('@') === -1) return { ok: false, error: 'Correo no válido.' };
+  return withLock_(function () {
+    bootstrap_();
+    var existentes = readCuentasGemini_();
+    for (var i = 0; i < existentes.length; i++) {
+      if (existentes[i].correo.toLowerCase() === correo) {
+        return { ok: false, error: 'Esa cuenta ya está en la lista de membresías.' };
+      }
+    }
+    sheet_(SHEETS.GEMINI).appendRow([correo, '', '', '', '', '']);
+    log_(actor, 'Agregó cuenta de membresía', correo);
+    return { ok: true };
+  });
 }

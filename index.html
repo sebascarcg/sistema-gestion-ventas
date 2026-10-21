@@ -16,7 +16,14 @@
   button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:.6rem 1rem;background:var(--accent);color:var(--accent-ink)}
   button.secondary{background:#eef2ff;color:var(--accent)}
   button.danger{background:#fee2e2;color:var(--red)}
-  button.wa-btn{background:var(--wa);color:#fff;font-weight:600;text-decoration:none;display:inline-block;border-radius:10px;padding:.55rem .95rem}
+  .wa-btn{background:var(--wa);color:#fff;font-weight:600;text-decoration:none;display:inline-block;border-radius:10px;padding:.55rem .95rem}
+  .btn-vincular{background:#1a73e8;color:#fff;font-weight:600;text-decoration:none;display:inline-block;border-radius:10px;padding:.55rem .95rem}
+  .btn-family{background:#ea4335;color:#fff;font-weight:600;text-decoration:none;display:inline-block;border-radius:10px;padding:.55rem .95rem}
+  .btn-copy{background:#eef1f6;color:var(--ink);font-weight:600;border:1px solid var(--line)}
+  .cuenta-row{display:flex;align-items:center;gap:1rem;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem 1rem;margin:.45rem 0;flex-wrap:wrap}
+  .barra{height:8px;background:#e8eaf2;border-radius:99px;overflow:hidden;flex:1;min-width:90px}
+  .barra>i{display:block;height:100%;background:#1e9e62}
+  .barra>i.llena{background:#d93025}
   button:disabled{opacity:.55;cursor:not-allowed}
   input,select{font:inherit;padding:.6rem .7rem;border:1px solid var(--line);border-radius:10px;width:100%;background:#fff}
   label{display:block;font-size:.85rem;color:var(--muted);margin:.7rem 0 .3rem}
@@ -160,6 +167,19 @@
     </section>
 
     <section>
+      <h2>📧 Cuentas de membresía (Gemini)</h2>
+      <p style="color:var(--muted);margin:.2rem 0 .6rem">A cada cuenta le caben 4 personas. El sistema recomienda llenar una primero y después seguir con la siguiente.</p>
+      <div id="cuentasList"><p class="empty">Cargando…</p></div>
+      <div class="card" style="margin-top:.8rem">
+        <h3 style="margin-top:0">Agregar cuenta de membresía</h3>
+        <label>Correo de la cuenta</label>
+        <input id="ctaEmail" type="email" placeholder="cuenta@gmail.com">
+        <div class="actions"><button id="btnAgregarCuenta">Agregar cuenta</button></div>
+        <div id="cuentasMsg"></div>
+      </div>
+    </section>
+
+    <section>
       <h2>🔑 Accesos al sistema</h2>
       <div class="card">
         <div class="table-wrap">
@@ -251,7 +271,8 @@ function showMsg(el, text, ok) {
 // ---------------------------------------------------------------------------
 // Estado global
 // ---------------------------------------------------------------------------
-let STATE = { clientes: [], historial: [], accesos: [], bitacora: [] };
+let STATE = { clientes: [], historial: [], accesos: [], bitacora: [], cuentasGemini: [] };
+const CUPO_CUENTA = 4; // personas que le caben a cada cuenta de membresía
 let filtroActual = "TODOS";
 
 // ---------------------------------------------------------------------------
@@ -324,7 +345,7 @@ function entrarAlPanel() {
 async function cargarEstado() {
   try {
     const data = await api("getState", {});
-    STATE = { clientes: data.clientes, historial: data.historial, accesos: data.accesos, bitacora: data.bitacora };
+    STATE = { clientes: data.clientes, historial: data.historial, accesos: data.accesos, bitacora: data.bitacora, cuentasGemini: data.cuentasGemini || [] };
     dibujarTodo();
   } catch (e) {
     if (/Sesión/.test(e.message)) {
@@ -343,6 +364,7 @@ function dibujarTodo() {
   dibujarClientes();
   dibujarAccesos();
   dibujarBitacora();
+  dibujarCuentas();
 }
 
 function dibujarContadores() {
@@ -460,11 +482,7 @@ function abrirFicha(codigo) {
   const wa = linkWhatsApp(cl);
   const servMin = String(cl.servicio || "").toLowerCase();
   const esGemini = servMin.indexOf("gemini") !== -1 || servMin.indexOf("google ai") !== -1;
-  const linkFamilia = (esGemini && cl.correoMembresia)
-    ? "https://accounts.google.com/signin/v2/identifier?flowName=GlifWebSignIn&flowEntry=ServiceLogin&login_hint=" +
-      encodeURIComponent(cl.correoMembresia) +
-      "&continue=" + encodeURIComponent("https://myaccount.google.com/family/details?continue=https%3A%2F%2Fmyaccount.google.com%2F")
-    : "";
+  const linkFamilia = (esGemini && cl.correoMembresia) ? linkFamiliaDe(cl.correoMembresia) : "";
   abrirModal(
 
     "<h3>" + esc(cl.cliente) + "</h3>" +
@@ -485,12 +503,19 @@ function abrirFicha(codigo) {
       (cl.estado !== "CANCELADA" ? '<button class="danger" id="fichaCancelar">Cancelar membresía</button>' : "") +
     "</div>" +
     (linkFamilia
-      ? '<div class="actions"><a class="wa-btn" style="background:#ea4335" target="_blank" rel="noopener" href="' + linkFamilia + '">👨‍👩‍👧 Quitar de la familia Google</a></div>' +
-        '<p style="color:var(--muted);font-size:.85rem;margin:.2rem 0 0">Abre el ingreso a <b>' + esc(cl.correoMembresia) + '</b> (solo pones la contraseña) y te lleva directo a la familia de Google para quitar al cliente. En incógnito: clic derecho en el botón → "Abrir enlace en ventana de incógnito".</p>'
+      ? '<div class="actions"><a class="btn-vincular" target="_blank" rel="noopener" href="' + linkFamilia + '">🔗 Vincular a membresía</a>' +
+        '<a class="btn-family" target="_blank" rel="noopener" href="' + linkFamilia + '">👨‍👩‍👧 Quitar de la familia Google</a>' +
+        '<button type="button" class="btn-copy" id="fichaCopiarFam">📋 Copiar enlace</button></div>' +
+        '<p style="color:var(--muted);font-size:.85rem;margin:.2rem 0 0">Ambos botones abren el ingreso a <b>' + esc(cl.correoMembresia) + '</b> con el correo ya lleno (solo Enter y la contraseña) y caen directo en la familia de Google: <b>Vincular</b> para agregar al cliente, <b>Quitar</b> para sacarlo. ¿En incógnito? Clic derecho en el botón → "Abrir enlace en ventana de incógnito", o copia el enlace, abre tu ventana con Ctrl+Shift+N y pégalo ahí.</p>'
       : "") +
     '<div id="fichaZona"></div>'
   );
   $("fichaRenovar").addEventListener("click", () => mostrarFormRenovar(cl));
+  const btnCopyFam = $("fichaCopiarFam");
+  if (btnCopyFam) btnCopyFam.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(linkFamilia); btnCopyFam.textContent = "✅ Enlace copiado"; }
+    catch (e) { alert("No se pudo copiar el enlace en este navegador."); }
+  });
   const btnCancelar = $("fichaCancelar");
   if (btnCancelar) btnCancelar.addEventListener("click", async () => {
     if (!confirm("¿Cancelar la membresía de " + cl.cliente + " (" + cl.codigo + ")?")) return;
@@ -550,13 +575,33 @@ $("btnNuevaVenta").addEventListener("click", () => {
     "<label>Correo del cliente</label><input id='vCorreo' type='email'>" +
     "<label>Servicio / Membresía</label><input id='vServicio' type='text' value='Gemini (Google AI Pro)'>" +
     '<div class="row-flex"><div><label>Teléfono / WhatsApp</label><input id="vTelefono" type="text" placeholder="+57 300 000 0000"></div>' +
-    '<div><label>Correo de membresía (cuenta donde se activa)</label><input id="vCorreoMem" type="email"></div></div>' +
+    '<div><label>Correo de membresía (el sistema recomienda)</label><select id="vCorreoMem"></select></div></div>' +
+    '<div class="actions"><a class="btn-vincular hidden" id="vVincular" target="_blank" rel="noopener" href="#">🔗 Vincular a membresía (agregarlo a la familia)</a></div>' +
     '<div class="row-flex"><div><label>Fecha de inicio</label><input id="vFecha" type="date" value="' + hoyISO() + '"></div>' +
     '<div><label>Duración</label><select id="vDuracion">' + opcionesDuracion() + "</select></div>" +
     '<div><label>Precio (COP)</label><input id="vPrecio" type="number" value="" placeholder="Escribe el precio" min="0"></div></div>' +
     '<div class="actions"><button id="vGuardar">Guardar venta</button></div>' +
     '<div id="vMsg"></div>'
   );
+  const cuentasMem = STATE.cuentasGemini || [];
+  const recMem = cuentaRecomendada();
+  const selMem = $("vCorreoMem");
+  if (cuentasMem.length) {
+    selMem.innerHTML = cuentasMem.map((c) =>
+      '<option value="' + esc(c.correo) + '"' + (recMem && c.correo === recMem.correo ? " selected" : "") + ">" +
+      esc(c.correo) + " — " + c.usados + "/" + CUPO_CUENTA + (c.usados >= CUPO_CUENTA ? " (llena)" : "") +
+      (recMem && c.correo === recMem.correo ? " ⭐ recomendada" : "") + "</option>"
+    ).join("");
+  } else {
+    selMem.outerHTML = '<input id="vCorreoMem" type="email" placeholder="cuenta@gmail.com">';
+  }
+  const actVincular = () => {
+    const v = $("vVincular");
+    const correoSel = $("vCorreoMem").value;
+    if (correoSel) { v.href = linkFamiliaDe(correoSel); v.classList.remove("hidden"); }
+  };
+  $("vCorreoMem").addEventListener("change", actVincular);
+  actVincular();
   $("vGuardar").addEventListener("click", async () => {
     const btn = $("vGuardar");
     btn.disabled = true;
@@ -578,6 +623,57 @@ $("btnNuevaVenta").addEventListener("click", () => {
       btn.disabled = false;
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// Cuentas de membresía (Gemini)
+// ---------------------------------------------------------------------------
+function linkFamiliaDe(correo) {
+  return "https://accounts.google.com/signin/v2/identifier?flowName=GlifWebSignIn&flowEntry=ServiceLogin&login_hint=" +
+    encodeURIComponent(correo) +
+    "&continue=" + encodeURIComponent("https://myaccount.google.com/family/details?continue=https%3A%2F%2Fmyaccount.google.com%2F");
+}
+
+function cuentaRecomendada() {
+  return (STATE.cuentasGemini || []).find((c) => c.usados < CUPO_CUENTA) || null;
+}
+
+function dibujarCuentas() {
+  const cont = $("cuentasList");
+  if (!cont) return;
+  const cuentas = STATE.cuentasGemini || [];
+  if (!cuentas.length) {
+    cont.innerHTML = '<p class="empty">Todavía no hay cuentas de membresía en la base. Agrega la primera aquí abajo.</p>';
+    return;
+  }
+  const rec = cuentaRecomendada();
+  cont.innerHTML = cuentas.map((c) => {
+    const llena = c.usados >= CUPO_CUENTA;
+    const pct = Math.min(100, Math.round((c.usados / CUPO_CUENTA) * 100));
+    return '<div class="cuenta-row"><b>' + esc(c.correo) + "</b>" +
+      '<span class="barra"><i class="' + (llena ? "llena" : "") + '" style="width:' + pct + '%"></i></span>' +
+      "<span>" + c.usados + "/" + CUPO_CUENTA + " personas</span>" +
+      (llena ? '<span class="badge VENCIDA">LLENA</span>'
+             : (rec && c.correo === rec.correo ? '<span class="badge ACTIVA">⭐ RECOMENDADA</span>' : '<span class="badge ACTIVA">Disponible</span>')) +
+      "</div>";
+  }).join("");
+}
+
+$("btnAgregarCuenta").addEventListener("click", async () => {
+  const correo = $("ctaEmail").value.trim();
+  const msg = $("cuentasMsg");
+  if (!correo) { showMsg(msg, "Escribe el correo de la cuenta.", false); return; }
+  $("btnAgregarCuenta").disabled = true;
+  try {
+    await api("addCuentaGemini", { correo: correo });
+    $("ctaEmail").value = "";
+    showMsg(msg, "Cuenta agregada: " + correo, true);
+    await cargarEstado();
+  } catch (e) {
+    showMsg(msg, e.message, false);
+  } finally {
+    $("btnAgregarCuenta").disabled = false;
+  }
 });
 
 // ---------------------------------------------------------------------------
