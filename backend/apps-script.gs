@@ -1040,20 +1040,10 @@ function readCuentasGemini_() {
  * Si ya tiene los 5 espacios llenos, no marca nada.
  */
 function geminiMarcarEspacio_(correoMembresia) {
-  var correo = String(correoMembresia || '').trim();
-  if (!correo) return;
-  var sh = sheet_(SHEETS.GEMINI);
-  var values = sh.getDataRange().getValues();
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0] || '').trim().toLowerCase() === correo.toLowerCase()) {
-      for (var j = 1; j <= 5; j++) {
-        var celda = sh.getRange(i + 1, j + 1);
-        if (String(celda.getValue()).trim() === '') { celda.setValue('✓'); return; }
-      }
-      return;
-    }
-  }
-  sh.appendRow([correo, '✓', '', '', '', '']);
+  // SIN ACCIÓN a propósito: los espacios (✓) de la pestaña GEMINI son
+  // fórmulas COUNTIFS que cuentan solos desde REGISTROS. Escribir valores
+  // encima rompería esas fórmulas (pasó el 2026-10-22 y hubo que reparar).
+  return;
 }
 
 /** Agrega una cuenta de membresía nueva a la pestaña GEMINI (sin espacios usados). */
@@ -1068,7 +1058,15 @@ function addCuentaGemini_(body, actor) {
         return { ok: false, error: 'Esa cuenta ya está en la lista de membresías.' };
       }
     }
-    sheet_(SHEETS.GEMINI).appendRow([correo, '', '', '', '', '']);
+    var shG = sheet_(SHEETS.GEMINI);
+    shG.appendRow([correo, '', '', '', '', '']);
+    var filaNueva = shG.getLastRow();
+    var formulas = [];
+    for (var n = 1; n <= 5; n++) {
+      formulas.push('=IF($A' + filaNueva + '="", "", IF(COUNTIFS(REGISTROS!$J$2:$J, $A' + filaNueva +
+        ', REGISTROS!$I$2:$I, "<>CANCELADA", REGISTROS!$I$2:$I, "<>VENCIDA", REGISTROS!$I$2:$I, "<>")>=' + n + ', "✓", ""))');
+    }
+    shG.getRange(filaNueva, 2, 1, 5).setValues([formulas]);
     log_(actor, 'Agregó cuenta de membresía', correo);
     return { ok: true };
   });
